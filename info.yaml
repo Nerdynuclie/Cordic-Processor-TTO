@@ -32,26 +32,26 @@ pinout:
   ui[5]: "DATA_IN[5]"
   ui[6]: "DATA_IN[6]"
   ui[7]: "DATA_IN[7]"
+  # Bidirectional pins
+
+  uio[0]: ""
+  uio[1]: ""
+  uio[2]: ""
+  uio[3]: "ERROR"
+  uio[4]: "DONE"
+  uio[5]: "BUSY"
+  uio[6]: "ANG_MUL"
+  uio[7]: "START"
 
   # Outputs
-  uo[0]: ""
-  uo[1]: ""
-  uo[2]: ""
-  uo[3]: "ERROR"
-  uo[4]: "DONE"
-  uo[5]: "BUSY"
-  uo[6]: "ANG_MUL"
-  uo[7]: "START"
-
-  # Bidirectional pins
-  uio[0]: "DATA_OUT[0]"
-  uio[1]: "DATA_OUT[1]"
-  uio[2]: "DATA_OUT[2]"
-  uio[3]: "DATA_OUT[3]"
-  uio[4]: "DATA_OUT[4]"
-  uio[5]: "DATA_OUT[5]"
-  uio[6]: "DATA_OUT[6]"
-  uio[7]: "DATA_OUT[7]"
+  uo[0]: "DATA_OUT[0]"
+  uo[1]: "DATA_OUT[1]"
+  uo[2]: "DATA_OUT[2]"
+  uo[3]: "DATA_OUT[3]"
+  uo[4]: "DATA_OUT[4]"
+  uo[5]: "DATA_OUT[5]"
+  uo[6]: "DATA_OUT[6]"
+  uo[7]: "DATA_OUT[7]"
 
 # Do not change!
 yaml_version: 6
