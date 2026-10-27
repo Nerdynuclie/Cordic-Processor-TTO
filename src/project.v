@@ -14,7 +14,7 @@ module tt_um_example (
   // assign uio_out = 0;
   // assign uio_oe  = 0;
     
-    assign uio_out[2:0] = 2'd0;
+    assign uio_out[2:0] = 3'd0;
     assign uio_out[7:6] = 2'd0;
   // // List all unused inputs to prevent warnings
   // wire _unused = &{ena, clk, rst_n, 1'b0};
@@ -32,3 +32,5 @@ module tt_um_example (
       .ENABLE(uio_oe),
       .DATA_OUT(uo_out) // Connect DATA_OUT to uo_out
   );
+
+endmodule
