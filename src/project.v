@@ -15,7 +15,7 @@ module tt_um_example (
   // assign uo_out  = ui_in + uio_in;  // Example: ou_out is the sum of ui_in and uio_in
   // assign uio_out = 0;
   // assign uio_oe  = 0;
-    assign uio_in[5:0] = 6'd0;
+    
     assign uio_out[1:0] = 2'd0;
     assign uio_out[7:6] = 2'd0;
   // // List all unused inputs to prevent warnings
