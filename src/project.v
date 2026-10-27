@@ -32,5 +32,4 @@ module tt_um_example (
       .ENABLE(uio_oe),
       .DATA_OUT(uo_out) // Connect DATA_OUT to uo_out
   );
-
 endmodule
