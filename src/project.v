@@ -23,17 +23,6 @@ module tt_um_example (
 
   // // List all unused inputs to prevent warnings
   // wire _unused = &{ena, clk, rst_n, 1'b0};
-//input signals
-  wire [7:0] data_in;
-//output port
-  wire [7:0] data_out;
-//control signals
-  wire start;     // 8 inout (INPUT)
-  wire ang_mul;   // 7 inout (INPUT)
-  wire busy;      // 6 inout (OUTPUT)
-  wire done;      // 5 inout (OUTPUT)
-  wire error;     // 4 inout (OUTPUT)
-  wire [7:0] enable; // 3:0 inout (INPUT)
 
   // Instantiate the CORDIC module
   CORDIC cordic_inst (
