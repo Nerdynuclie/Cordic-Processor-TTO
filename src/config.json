@@ -61,7 +61,7 @@
   "FP_PDN_VPITCH": 38.87,
 
   "//": "Clock",
-  "RUN_CTS": 1,
+  "RUN_CTS": 0,
 
   "//": "Don't generate power rings",
   "FP_PDN_MULTILAYER": 0,
