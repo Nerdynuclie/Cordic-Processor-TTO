@@ -1,61 +1,62 @@
 `default_nettype none
-
+ 
 module CORDIC(
     // CLOCK AND ACTIVE LOW RESET
     input wire CLK,
     input wire RSTn,
-
+ 
     // CONTROL INPUTS
     input wire START, // STARTS THE TRANSACTION
     input wire ANG_MUL, // 1 : ANGLE CALCULATION, 0 : MULTIPLICATION
-
-    // DATA INPUT : ANGLE OR {MULTIPLIER/MULTIPLICAND} 
+ 
+    // DATA INPUT : ANGLE OR {MULTIPLIER/MULTIPLICAND}
     input wire [7:0] DATA_IN,
-
+ 
     // CONTROL OUTPUTS
     output wire BUSY,
     output wire DONE,
     output wire ERROR,
-
+ 
     //ENABLE OUTPUT
     output wire [7:0] ENABLE,
-
-    //DATA OUTPUT 
+ 
+    //DATA OUTPUT
     output reg [7:0] DATA_OUT
 );
-
+ 
     assign ENABLE = 8'b00111000; // START ANG_MUL BUSY DONE ERROR RESERVED
-
+ 
     // STATE REGISTER DECLARATION
     reg [1:0] PS, NS;
-
+ 
     // STATE NAME DECLARATION
     localparam IDLE = 2'd0;
     localparam LOAD_INPUT = 2'd1;
     localparam CORDIC_OPERATION = 2'd2;
     localparam TRANS_DONE = 2'd3;
-    
-    assign ERROR = START && BUSY;
-    assign BUSY = (PS == IDLE && START) || (PS == LOAD_INPUT) || (PS == CORDIC_OPERATION);
+   
+    // CONTROL SIGNAL LOGIC
+    assign ERROR = START && (PS != IDLE);
+    assign BUSY = (((PS == IDLE) && START) || (PS == LOAD_INPUT) || (PS == CORDIC_OPERATION));
     assign DONE = (PS == TRANS_DONE);
-
+ 
     // CORDIC ALGORITHM REGISTERS
-    reg signed [31:0] X;
-    reg signed [31:0] Y;
+    reg signed [15:0] X;
+    reg signed [15:0] Y;
     reg signed [15:0] Z;
-
+ 
     // QUADRANT REGISTER
     reg [1:0] QUAD;
-
+ 
     // COUNT REGISTER
     reg [3:0] ITR_CNT;
-
+ 
     // ANG_MUL REGISTER
     reg AM;
-
+ 
     // LUT REGISTER
     reg [13:0] ARCTAN;
-
+ 
     // Look Up Table For ARCTAN values based on the iteration
     always @(*) begin
         case (ITR_CNT)
@@ -74,11 +75,10 @@ module CORDIC(
             12: ARCTAN = 14'h0003; //  0.013988 degrees
             13: ARCTAN = 14'h0001; //  0.006994 degrees
             14: ARCTAN = 14'h0001; //  0.003497 degrees
-            15: ARCTAN = 14'h0000; //  0.001749 degrees
             default: ARCTAN = 14'h0000;
         endcase
     end
-
+ 
     // COUNTER LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
@@ -90,20 +90,20 @@ module CORDIC(
             end
             else begin
                 ITR_CNT <= ITR_CNT + 1;
-            end 
+            end
         end
     end
-
+ 
     // PRESENT STATE LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
-            PS <= IDLE; 
+            PS <= IDLE;
         end
         else begin
             PS <= NS;
         end
     end
-
+ 
     // NEXT STATE LOGIC
     always @(*) begin
         case(PS)
@@ -117,23 +117,23 @@ module CORDIC(
                 NS = (ITR_CNT == 15) ? TRANS_DONE : CORDIC_OPERATION;
             end
             TRANS_DONE : begin
-                NS = (ITR_CNT == 3) ? IDLE : TRANS_DONE;
+                NS = AM ? (ITR_CNT == 4) ? IDLE : TRANS_DONE : (ITR_CNT == 1) ? IDLE : TRANS_DONE ;
             end
             default : NS = IDLE;
         endcase
     end
-
+ 
     // OUTPUT LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
             X <= 0;
             Y <= 0;
             Z <= 0;
-
+ 
             QUAD <= 0;
-
+ 
             DATA_OUT <= 0;
-
+ 
             AM <= 0;
         end
         else begin
@@ -142,9 +142,7 @@ module CORDIC(
                     if(START) begin
                         AM <= ANG_MUL;
                     end
-                    X <= 0;
                     Y <= 0;
-                    Z <= 0;
                     DATA_OUT <= 0;
                 end
                 LOAD_INPUT : begin
@@ -162,11 +160,11 @@ module CORDIC(
                             3 : begin
                                 if(QUAD[0]) Z <= 16'h4000 - {2'd0, Z[13:0]};
                                 else Z <= {2'd0, Z[13:0]};
-                               X <= 32'sd9949;  // 0.6072529 in Q14
-                               Y <= 32'sd0;
+                                X <= 16'sd9949;  // 0.6072529 in Q14
+                                Y <= 16'sd0;
                             end
                             default : begin
-
+ 
                             end
                         endcase
                     end
@@ -176,17 +174,16 @@ module CORDIC(
                                 X[7:0] <= DATA_IN;
                             end
                             1 : begin
-                                X[15:8] <= DATA_IN;
+                                Z[7:0] <= DATA_IN;
                             end
                             2 : begin
-                                Z[7:0] <= DATA_IN;
-                                X <= {{2{X[15]}}, X[15:0], 14'b0};
+                                X <= {{8{X[7]}},X[7:0]};
                             end
                             3 : begin
-                                Z[15:8] <= DATA_IN;
+                                Z <= {{8{Z[7]}},Z[7:0]};
                             end
                             default : begin
-
+ 
                             end
                         endcase
                     end
@@ -212,11 +209,11 @@ module CORDIC(
                     end
                     else begin
                         if(ITR_CNT == 15) begin
-                            Y <= !(|Z) ? Z[15] ? (Y - (X >>> 14)) : (Y + (X >>> 14)) : Y;
+                            Y <= |Z ? (Z[15] ? (Y - X) : (Y + X)) : Y;      
                         end
-                        else begin
-                            Y <= Z[15] ? (Y - (X >>> ITR_CNT)) : (Y + (X >>> ITR_CNT));
-                            Z <= Z[15] ? (Z + (16'h4000 >>> ITR_CNT )) : (Z - (16'h4000 >>> ITR_CNT));
+                        else begin                
+                            Y <= Z[15] ? (Y - (X <<< (4'd14 - ITR_CNT))) : (Y + (X <<< (4'd14 - ITR_CNT)));  
+                            Z <= Z[15] ? (Z + (16'h4000 >> ITR_CNT))     : (Z - (16'h4000 >> ITR_CNT));    
                         end
                     end
                 end
@@ -231,22 +228,20 @@ module CORDIC(
                         end
                         // SENDING SIN VALUE IF AM = 1
                         2 : begin
-                            DATA_OUT <= AM ? Y[7:0] : Y[23:16];
+                            DATA_OUT <= AM ? Y[7:0] : 8'd0;
                         end
                         3 : begin
-                            DATA_OUT <= AM ? Y[15:8] : Y[31:24];
+                            DATA_OUT <= AM ? Y[15:8] : 8'd0;
                         end
                         default : begin
                             DATA_OUT <= 8'd0;
                         end
-                    endcase             
+                    endcase            
                 end
                 default : begin
-
+ 
                 end
             endcase
         end
     end
 endmodule
-
- 
