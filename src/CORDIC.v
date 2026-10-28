@@ -1,4 +1,5 @@
 `default_nettype none
+
 module CORDIC(
     // CLOCK AND ACTIVE LOW RESET
     input wire CLK,
@@ -91,21 +92,19 @@ module CORDIC(
     wire [15:0] XA = X_NEG ? 16'd0 : X;
     wire [15:0] XB = X_NEG ? X : Y_SRA;
     wire XADD = X_NEG ? 1'b0 : Z[15];
-    wire [15:0] X_RES;
-    addsub U_X (.opa(XA), .opb(XB), .addsub_bar(XADD), .result(X_RES));
+    wire [15:0] X_RES = XADD ? (XA + XB) : (XA - XB);
 
     wire Y_NEG = AM && LAST;
     wire [15:0] YA = Y_NEG ? 16'd0 : Y;
     wire [15:0] YB = AM ? (LAST ? Y : X_SRA) : (LAST ? X : X_SLL);
     wire YADD = Y_NEG ? 1'b0 : ~Z[15];
-    wire [15:0] Y_RES;
-    addsub U_Y (.opa(YA), .opb(YB), .addsub_bar(YADD), .result(Y_RES));
+    wire [15:0] Y_RES = YADD ? (YA + YB) : (YA - YB);
 
     wire LD_FIX = (PS == LOAD_INPUT) && (ITR_CNT == 4'd3) && AM && QUAD[0];
     wire [15:0] ZA = LD_FIX ? 16'h4000 : Z;
     wire [15:0] ZB = LD_FIX ? {2'd0, Z[13:0]} : AM ? {2'd0, ARCTAN} : (16'h4000 >> ITR_CNT);
-    wire [15:0] Z_RES;
-    addsub U_Z (.opa(ZA), .opb(ZB), .addsub_bar(~LD_FIX & Z[15]), .result(Z_RES));
+    wire ZADD = ~LD_FIX & Z[15];
+    wire [15:0] Z_RES = ZADD ? (ZA + ZB) : (ZA - ZB);
 
     // COUNTER LOGIC
     always @(posedge CLK or negedge RSTn) begin
