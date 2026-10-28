@@ -1,5 +1,4 @@
 `default_nettype none
-
 module CORDIC(
     // CLOCK AND ACTIVE LOW RESET
     input wire CLK,
@@ -9,18 +8,18 @@ module CORDIC(
     input wire START, // STARTS THE TRANSACTION
     input wire ANG_MUL, // 1 : ANGLE CALCULATION, 0 : MULTIPLICATION
 
-    // DATA INPUT : ANGLE OR {MULTIPLIER/MULTIPLICAND} 
+    // DATA INPUT : ANGLE OR {MULTIPLIER/MULTIPLICAND}
     input wire [7:0] DATA_IN,
 
     // CONTROL OUTPUTS
-    output wire BUSY,
-    output wire DONE,
-    output wire ERROR,
+    output reg BUSY,
+    output reg DONE,
+    output reg ERROR,
 
     //ENABLE OUTPUT
     output wire [7:0] ENABLE,
 
-    //DATA OUTPUT 
+    //DATA OUTPUT
     output reg [7:0] DATA_OUT
 );
 
@@ -34,11 +33,6 @@ module CORDIC(
     localparam LOAD_INPUT = 2'd1;
     localparam CORDIC_OPERATION = 2'd2;
     localparam TRANS_DONE = 2'd3;
-    
-    // CONTROL SIGNAL LOGIC
-    assign ERROR = START && (PS != IDLE);
-    assign BUSY = (((PS == IDLE) && START) || (PS == LOAD_INPUT) || (PS == CORDIC_OPERATION));
-    assign DONE = (PS == TRANS_DONE);
 
     // CORDIC ALGORITHM REGISTERS
     reg signed [15:0] X;
@@ -56,6 +50,13 @@ module CORDIC(
 
     // LUT REGISTER
     reg [13:0] ARCTAN;
+
+    // CONTROL SIGNAL LOGIC
+    always @(*) begin
+        ERROR = START && (PS != IDLE);
+        BUSY = (((PS == IDLE) && START) || (PS == LOAD_INPUT) || (PS == CORDIC_OPERATION));
+        DONE = (PS == TRANS_DONE);
+    end
 
     // Look Up Table For ARCTAN values based on the iteration
     always @(*) begin
@@ -80,6 +81,32 @@ module CORDIC(
         endcase
     end
 
+    wire LAST = (ITR_CNT == 4'd15);
+
+    wire signed [15:0] X_SRA = X >>> ITR_CNT;
+    wire signed [15:0] Y_SRA = Y >>> ITR_CNT;
+    wire [15:0] X_SLL = X << (4'd14 - ITR_CNT);
+
+    wire X_NEG = AM && LAST;
+    wire [15:0] XA = X_NEG ? 16'd0 : X;
+    wire [15:0] XB = X_NEG ? X : Y_SRA;
+    wire XADD = X_NEG ? 1'b0 : Z[15];
+    wire [15:0] X_RES;
+    addsub U_X (.opa(XA), .opb(XB), .addsub_bar(XADD), .result(X_RES));
+
+    wire Y_NEG = AM && LAST;
+    wire [15:0] YA = Y_NEG ? 16'd0 : Y;
+    wire [15:0] YB = AM ? (LAST ? Y : X_SRA) : (LAST ? X : X_SLL);
+    wire YADD = Y_NEG ? 1'b0 : ~Z[15];
+    wire [15:0] Y_RES;
+    addsub U_Y (.opa(YA), .opb(YB), .addsub_bar(YADD), .result(Y_RES));
+
+    wire LD_FIX = (PS == LOAD_INPUT) && (ITR_CNT == 4'd3) && AM && QUAD[0];
+    wire [15:0] ZA = LD_FIX ? 16'h4000 : Z;
+    wire [15:0] ZB = LD_FIX ? {2'd0, Z[13:0]} : AM ? {2'd0, ARCTAN} : (16'h4000 >> ITR_CNT);
+    wire [15:0] Z_RES;
+    addsub U_Z (.opa(ZA), .opb(ZB), .addsub_bar(~LD_FIX & Z[15]), .result(Z_RES));
+
     // COUNTER LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
@@ -91,14 +118,14 @@ module CORDIC(
             end
             else begin
                 ITR_CNT <= ITR_CNT + 4'd1;
-            end 
+            end
         end
     end
 
     // PRESENT STATE LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
-            PS <= IDLE; 
+            PS <= IDLE;
         end
         else begin
             PS <= NS;
@@ -118,7 +145,7 @@ module CORDIC(
                 NS = (ITR_CNT == 4'd15) ? TRANS_DONE : CORDIC_OPERATION;
             end
             TRANS_DONE : begin
-                NS = AM ? (ITR_CNT == 4'd4) ? IDLE : TRANS_DONE : (ITR_CNT == 4'd1) ? IDLE : TRANS_DONE ;
+                NS = AM ? (ITR_CNT == 4'd4) ? IDLE : TRANS_DONE : (ITR_CNT == 4'd2) ? IDLE : TRANS_DONE ;
             end
             default : NS = IDLE;
         endcase
@@ -159,8 +186,7 @@ module CORDIC(
                                 QUAD <= Z[15:14];
                             end
                             3 : begin
-                                if(QUAD[0]) Z <= 16'h4000 - {2'd0, Z[13:0]};
-                                else Z <= {2'd0, Z[13:0]};
+                                Z <= QUAD[0] ? Z_RES : {2'd0, Z[13:0]};
                                 X <= 16'sd9949;  // 0.6072529 in Q14
                                 Y <= 16'sd0;
                             end
@@ -191,30 +217,23 @@ module CORDIC(
                 end
                 CORDIC_OPERATION : begin
                     if(AM) begin
-                        if(ITR_CNT == 15) begin
-                            if(QUAD[1]) Y <= -Y;
-                            if(QUAD[1] ^ QUAD[0]) X <= -X;
+                        if(LAST) begin
+                            if(QUAD[1]) Y <= Y_RES;
+                            if(QUAD[1] ^ QUAD[0]) X <= X_RES;
                         end
                         else begin
-                            if(Z[15]) begin // DIRECTION : -1
-                                X <= X + (Y >>> ITR_CNT);
-                                Y <= Y - (X >>> ITR_CNT);
-                                Z <= Z + {2'd0, ARCTAN};
-                            end
-                            else begin // DIRECTION : 1
-                                X <= X - (Y >>> ITR_CNT);
-                                Y <= Y + (X >>> ITR_CNT);
-                                Z <= Z - {2'd0, ARCTAN};
-                            end
+                            X <= X_RES;
+                            Y <= Y_RES;
+                            Z <= Z_RES;
                         end
                     end
                     else begin
-                        if(ITR_CNT == 15) begin
-                            Y <= |Z ? (Z[15] ? (Y - X) : (Y + X)) : Y;       
+                        if(LAST) begin
+                            Y <= |Z ? Y_RES : Y;
                         end
-                        else begin                 
-                            Y <= Z[15] ? (Y - (X <<< (4'd14 - ITR_CNT))) : (Y + (X <<< (4'd14 - ITR_CNT)));  
-                            Z <= Z[15] ? (Z + (16'h4000 >> ITR_CNT))     : (Z - (16'h4000 >> ITR_CNT));    
+                        else begin
+                            Y <= Y_RES;
+                            Z <= Z_RES;
                         end
                     end
                 end
@@ -237,7 +256,7 @@ module CORDIC(
                         default : begin
                             DATA_OUT <= 8'd0;
                         end
-                    endcase             
+                    endcase
                 end
                 default : begin
 
@@ -245,4 +264,4 @@ module CORDIC(
             endcase
         end
     end
-endmodule 
+endmodule
