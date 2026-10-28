@@ -1,62 +1,62 @@
 `default_nettype none
- 
+
 module CORDIC(
     // CLOCK AND ACTIVE LOW RESET
     input wire CLK,
     input wire RSTn,
- 
+
     // CONTROL INPUTS
     input wire START, // STARTS THE TRANSACTION
     input wire ANG_MUL, // 1 : ANGLE CALCULATION, 0 : MULTIPLICATION
- 
-    // DATA INPUT : ANGLE OR {MULTIPLIER/MULTIPLICAND}
+
+    // DATA INPUT : ANGLE OR {MULTIPLIER/MULTIPLICAND} 
     input wire [7:0] DATA_IN,
- 
+
     // CONTROL OUTPUTS
     output wire BUSY,
     output wire DONE,
     output wire ERROR,
- 
+
     //ENABLE OUTPUT
     output wire [7:0] ENABLE,
- 
-    //DATA OUTPUT
+
+    //DATA OUTPUT 
     output reg [7:0] DATA_OUT
 );
- 
+
     assign ENABLE = 8'b00111000; // START ANG_MUL BUSY DONE ERROR RESERVED
- 
+
     // STATE REGISTER DECLARATION
     reg [1:0] PS, NS;
- 
+
     // STATE NAME DECLARATION
     localparam IDLE = 2'd0;
     localparam LOAD_INPUT = 2'd1;
     localparam CORDIC_OPERATION = 2'd2;
     localparam TRANS_DONE = 2'd3;
-   
+    
     // CONTROL SIGNAL LOGIC
     assign ERROR = START && (PS != IDLE);
     assign BUSY = (((PS == IDLE) && START) || (PS == LOAD_INPUT) || (PS == CORDIC_OPERATION));
     assign DONE = (PS == TRANS_DONE);
- 
+
     // CORDIC ALGORITHM REGISTERS
     reg signed [15:0] X;
     reg signed [15:0] Y;
     reg signed [15:0] Z;
- 
+
     // QUADRANT REGISTER
     reg [1:0] QUAD;
- 
+
     // COUNT REGISTER
     reg [3:0] ITR_CNT;
- 
+
     // ANG_MUL REGISTER
     reg AM;
- 
+
     // LUT REGISTER
     reg [13:0] ARCTAN;
- 
+
     // Look Up Table For ARCTAN values based on the iteration
     always @(*) begin
         case (ITR_CNT)
@@ -75,35 +75,36 @@ module CORDIC(
             12: ARCTAN = 14'h0003; //  0.013988 degrees
             13: ARCTAN = 14'h0001; //  0.006994 degrees
             14: ARCTAN = 14'h0001; //  0.003497 degrees
+            15: ARCTAN = 14'h0000; //  0.001749 degrees
             default: ARCTAN = 14'h0000;
         endcase
     end
- 
+
     // COUNTER LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
-            ITR_CNT <= 0;
+            ITR_CNT <= 4'd0;
         end
         else begin
             if((PS != NS) || (PS == IDLE)) begin
-                ITR_CNT <= 0;
+                ITR_CNT <= 4'd0;
             end
             else begin
-                ITR_CNT <= ITR_CNT + 1;
-            end
+                ITR_CNT <= ITR_CNT + 4'd1;
+            end 
         end
     end
- 
+
     // PRESENT STATE LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
-            PS <= IDLE;
+            PS <= IDLE; 
         end
         else begin
             PS <= NS;
         end
     end
- 
+
     // NEXT STATE LOGIC
     always @(*) begin
         case(PS)
@@ -111,30 +112,30 @@ module CORDIC(
                 NS = START ? LOAD_INPUT : IDLE;
             end
             LOAD_INPUT : begin
-                NS = (ITR_CNT == 3) ? CORDIC_OPERATION : LOAD_INPUT;
+                NS = (ITR_CNT == 4'd3) ? CORDIC_OPERATION : LOAD_INPUT;
             end
             CORDIC_OPERATION : begin
-                NS = (ITR_CNT == 15) ? TRANS_DONE : CORDIC_OPERATION;
+                NS = (ITR_CNT == 4'd15) ? TRANS_DONE : CORDIC_OPERATION;
             end
             TRANS_DONE : begin
-                NS = AM ? (ITR_CNT == 4) ? IDLE : TRANS_DONE : (ITR_CNT == 1) ? IDLE : TRANS_DONE ;
+                NS = AM ? (ITR_CNT == 4'd4) ? IDLE : TRANS_DONE : (ITR_CNT == 4'd1) ? IDLE : TRANS_DONE ;
             end
             default : NS = IDLE;
         endcase
     end
- 
+
     // OUTPUT LOGIC
     always @(posedge CLK or negedge RSTn) begin
         if(!RSTn) begin
-            X <= 0;
-            Y <= 0;
-            Z <= 0;
- 
-            QUAD <= 0;
- 
-            DATA_OUT <= 0;
- 
-            AM <= 0;
+            X <= 16'd0;
+            Y <= 16'd0;
+            Z <= 16'd0;
+
+            QUAD <= 2'd0;
+
+            DATA_OUT <= 8'd0;
+
+            AM <= 1'd0;
         end
         else begin
             case(PS)
@@ -142,8 +143,8 @@ module CORDIC(
                     if(START) begin
                         AM <= ANG_MUL;
                     end
-                    Y <= 0;
-                    DATA_OUT <= 0;
+                    Y <= 16'd0;
+                    DATA_OUT <= 8'd0;
                 end
                 LOAD_INPUT : begin
                     if(AM) begin
@@ -164,7 +165,7 @@ module CORDIC(
                                 Y <= 16'sd0;
                             end
                             default : begin
- 
+
                             end
                         endcase
                     end
@@ -183,7 +184,7 @@ module CORDIC(
                                 Z <= {{8{Z[7]}},Z[7:0]};
                             end
                             default : begin
- 
+
                             end
                         endcase
                     end
@@ -209,9 +210,9 @@ module CORDIC(
                     end
                     else begin
                         if(ITR_CNT == 15) begin
-                            Y <= |Z ? (Z[15] ? (Y - X) : (Y + X)) : Y;      
+                            Y <= |Z ? (Z[15] ? (Y - X) : (Y + X)) : Y;       
                         end
-                        else begin                
+                        else begin                 
                             Y <= Z[15] ? (Y - (X <<< (4'd14 - ITR_CNT))) : (Y + (X <<< (4'd14 - ITR_CNT)));  
                             Z <= Z[15] ? (Z + (16'h4000 >> ITR_CNT))     : (Z - (16'h4000 >> ITR_CNT));    
                         end
@@ -236,12 +237,12 @@ module CORDIC(
                         default : begin
                             DATA_OUT <= 8'd0;
                         end
-                    endcase            
+                    endcase             
                 end
                 default : begin
- 
+
                 end
             endcase
         end
     end
-endmodule
+endmodule 
