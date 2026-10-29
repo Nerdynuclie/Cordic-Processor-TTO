@@ -137,7 +137,7 @@ module CORDIC(
                 NS = (ITR_CNT == 4'd15) ? TRANS_DONE : CORDIC_OPERATION;
             end
             TRANS_DONE : begin
-                NS = AM ? (ITR_CNT == 4'd4) ? IDLE : TRANS_DONE : (ITR_CNT == 4'd2) ? IDLE : TRANS_DONE ;
+                NS = AM ? (ITR_CNT == 4'd3) ? IDLE : TRANS_DONE : (ITR_CNT == 4'd1) ? IDLE : TRANS_DONE ;
             end
             default : NS = IDLE;
         endcase
