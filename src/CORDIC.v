@@ -85,19 +85,19 @@ module CORDIC(
     wire [15:0] XA = X_NEG ? 16'd0 : X;
     wire [15:0] XB = X_NEG ? X : Y_SRA;
     wire XADD = X_NEG ? 1'b0 : Z[15];
-    wire [15:0] X_RES = XADD ? (XA + XB) : (XA - XB);
+    wire [16:0] X_RES = XADD ? (XA + XB) : (XA - XB);
 
     wire Y_NEG = AM && LAST;
     wire [15:0] YA = Y_NEG ? 16'd0 : Y;
     wire [15:0] YB = AM ? (LAST ? Y : X_SRA) : (LAST ? X : X_SLL);
     wire YADD = Y_NEG ? 1'b0 : ~Z[15];
-    wire [15:0] Y_RES = YADD ? (YA + YB) : (YA - YB);
+    wire [16:0] Y_RES = YADD ? (YA + YB) : (YA - YB);
 
     wire LD_FIX = (PS == LOAD_INPUT) && (ITR_CNT == 4'd3) && AM && QUAD[0];
     wire [15:0] ZA = LD_FIX ? 16'h4000 : Z;
     wire [15:0] ZB = LD_FIX ? {2'd0, Z[13:0]} : AM ? {2'd0, ARCTAN} : (16'h4000 >> ITR_CNT);
     wire ZADD = ~LD_FIX & Z[15];
-    wire [15:0] Z_RES = ZADD ? (ZA + ZB) : (ZA - ZB);
+    wire [16:0] Z_RES = ZADD ? (ZA + ZB) : (ZA - ZB);
 
     // COUNTER LOGIC
     always @(posedge CLK or negedge RSTn) begin
@@ -187,7 +187,7 @@ module CORDIC(
                                 QUAD <= Z[15:14];
                             end
                             3 : begin
-                                Z <= QUAD[0] ? Z_RES : {2'd0, Z[13:0]};
+                                Z <= QUAD[0] ? Z_RES [15:0] : {2'd0, Z[13:0]};
                                 X <= 16'sd9949;  // 0.6072529 in Q14
                                 Y <= 16'sd0;
                             end
@@ -220,22 +220,22 @@ module CORDIC(
                     if(START) ERROR <= 1'd1;
                     if(AM) begin
                         if(LAST) begin
-                            if(QUAD[1]) Y <= Y_RES;
-                            if(QUAD[1] ^ QUAD[0]) X <= X_RES;
+                            if(QUAD[1]) Y <= Y_RES [15:0];
+                            if(QUAD[1] ^ QUAD[0]) X <= X_RES[15:0] ;
                         end
                         else begin
-                            X <= X_RES;
-                            Y <= Y_RES;
-                            Z <= Z_RES;
+                            X <= X_RES[15:0];
+                            Y <= Y_RES[15:0];
+                            Z <= Z_RES[15:0];
                         end
                     end
                     else begin
                         if(LAST) begin
-                            Y <= |Z ? Y_RES : Y;
+                            Y <= |Z ? Y_RES[15:0] : Y[15:0];
                         end
                         else begin
-                            Y <= Y_RES;
-                            Z <= Z_RES;
+                            Y <= Y_RES[15:0];
+                            Z <= Z_RES[15:0];
                         end
                     end
                 end
