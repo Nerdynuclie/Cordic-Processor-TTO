@@ -52,13 +52,6 @@ module CORDIC(
     // LUT REGISTER
     reg [13:0] ARCTAN;
 
-    // CONTROL SIGNAL LOGIC
-    always @(*) begin
-        ERROR = START && (PS != IDLE);
-        BUSY = (((PS == IDLE) && START) || (PS == LOAD_INPUT) || (PS == CORDIC_OPERATION));
-        DONE = (PS == TRANS_DONE);
-    end
-
     // Look Up Table For ARCTAN values based on the iteration
     always @(*) begin
         case (ITR_CNT)
@@ -160,19 +153,28 @@ module CORDIC(
             QUAD <= 2'd0;
 
             DATA_OUT <= 8'd0;
+            
+            BUSY <= 1'd0;
+            DONE <= 1'd0;
+            ERROR <= 1'd0;
 
             AM <= 1'd0;
         end
         else begin
+            ERROR <= 1'd0;
             case(PS)
                 IDLE : begin
+                    BUSY <= 1'd0;
                     if(START) begin
+                        BUSY <= 1'd1;
                         AM <= ANG_MUL;
                     end
+                    DONE <= 1'd0;
                     Y <= 16'd0;
                     DATA_OUT <= 8'd0;
                 end
                 LOAD_INPUT : begin
+                    if(START) ERROR <= 1'd1;
                     if(AM) begin
                         case(ITR_CNT)
                             0 : begin
@@ -215,6 +217,7 @@ module CORDIC(
                     end
                 end
                 CORDIC_OPERATION : begin
+                    if(START) ERROR <= 1'd1;
                     if(AM) begin
                         if(LAST) begin
                             if(QUAD[1]) Y <= Y_RES;
@@ -237,6 +240,8 @@ module CORDIC(
                     end
                 end
                 TRANS_DONE : begin
+                    if(START) ERROR <= 1'd1;
+                    DONE <= 1'd1;
                     case(ITR_CNT)
                         // SENDING COS VALUE IF AM = 1
                         0 : begin
