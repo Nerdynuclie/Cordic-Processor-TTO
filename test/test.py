@@ -11,6 +11,7 @@ BUSY_BIT  = 5
 
 
 async def send_bytes(dut, mode, data):
+    await FallingEdge(dut.clk)
     for i, b in enumerate(data):
         dut.ui_in.value = b
         dut.uio_in.value = (mode << ANG_BIT) | ((1 if i == 0 else 0) << START_BIT)
@@ -21,10 +22,15 @@ async def send_bytes(dut, mode, data):
 
 async def wait_done(dut, timeout=100):
     for _ in range(timeout):
-        if (int(dut.uio_out.value) >> DONE_BIT) & 1:
+        flags = int(dut.uio_out.value)
+        if (flags >> DONE_BIT) & 1:
             return
         await FallingEdge(dut.clk)
-    assert False, "timeout waiting for DONE"
+    flags = int(dut.uio_out.value)
+    assert False, (
+        f"timeout: busy={(flags >> BUSY_BIT) & 1} "
+        f"done={(flags >> DONE_BIT) & 1} error={(flags >> ERR_BIT) & 1}"
+    )
 
 
 async def read_result(dut):
@@ -62,7 +68,7 @@ async def test_multiply(dut):
     if val >= 1 << 31:
         val -= 1 << 32
     dut._log.info(f"mul result bytes={res} -> {val}")
-    assert val == a * b, f"expected {a*b}, got {val}"
+    assert val == a * b, f"expected {a * b}, got {val}"
     assert not (int(dut.uio_out.value) >> ERR_BIT) & 1, "error flag set"
 
 
