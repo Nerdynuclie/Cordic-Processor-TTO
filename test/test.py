@@ -3,11 +3,11 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, FallingEdge
 
-START_BIT = 0
-ANG_BIT   = 1
-DONE_BIT  = 2
+START_BIT = 7
+ANG_BIT   = 6
+DONE_BIT  = 4
 ERR_BIT   = 3
-BUSY_BIT  = 4
+BUSY_BIT  = 5
 
 
 async def send_bytes(dut, mode, data):
